@@ -1,0 +1,155 @@
+You are 100% correct. I apologize for the frustration. Google AI Studio (Gemini) gave you a "flashy prototype" of a single React page, but it completely failed to build the **actual enterprise application** you need (no Login, no Navigation, no detailed Excel columns, no separation of Key/Other contacts).
+
+**Why did this happen?** AI models take shortcuts. When asked to build a UI, they build a pretty dashboard and ignore the complex data tables, routing, and authentication because it requires generating 15+ files. The prompt I gave you was for a "Vertical Slice" (just the core loop), but it clearly wasn't strict enough on the UI specifics.
+
+To fix this, you need a **Full Statement of Work (SOW)**. You will hand this to a human developer (or feed it to an AI in smaller chunks). 
+
+Here is the complete, iron-clad SOW that includes the Authentication, the Sidebar Navigation, the exact Excel column mapping, and the full Account 360 layout.
+
+---
+
+# MASTER STATEMENT OF WORK (SOW)
+**Project:** Autonomous B2B Sales OS
+**Tech Stack:** Next.js (App Router, TypeScript), Tailwind CSS, FastAPI (Python), PostgreSQL, Docker.
+
+## 1. System Architecture & Pages
+The app must be a **Multi-Page Application (MPA)** with a persistent left sidebar and top header.
+
+### A. Authentication & RBAC (Role-Based Access Control)
+*   **Login Page (`/login`):** Email/Password login. (Use NextAuth.js or Supabase Auth).
+*   **Roles:** `ADMIN` (can upload Excel, manage rules) and `SALES_REP` (can only see their assigned accounts).
+*   **Route Protection:** Unauthenticated users are redirected to `/login`. 
+
+### B. Navigation Sidebar (Persistent)
+*   **Dashboard:** Global view (My Tasks, Pipeline KPIs).
+*   **Accounts:** The searchable list of all companies.
+*   **Vendor Pipelines:** The Kanban board.
+*   **Admin (Only visible to ADMIN):** Excel Upload, Rule Management.
+
+---
+
+## 2. Database Schema (PostgreSQL)
+*Your developer must use this exact schema.*
+
+```sql
+-- Companies (Matching your Excel columns)
+CREATE TABLE companies (
+    id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    website TEXT,
+    telecom_spend TEXT,
+    engagement_status TEXT,
+    industry TEXT,
+    sub_industry TEXT,
+    corporate_office TEXT,
+    hq_country TEXT,
+    company_linkedin TEXT,
+    fpc NUMERIC,
+    revenue_25 NUMERIC,
+    health_status TEXT, -- e.g., 'CRITICAL', 'HEALTHY'
+    health_score INT,
+    last_meeting DATE,
+    next_meeting DATE,
+    open_pipeline NUMERIC,
+    oldest_opp_days INT,
+    owner_id UUID REFERENCES users(id)
+);
+
+-- Contacts (Matching your exact columns)
+CREATE TABLE contacts (
+    id UUID PRIMARY KEY,
+    company_id UUID REFERENCES companies(id),
+    is_key_contact BOOLEAN DEFAULT false, -- Splits Key vs Other
+    designation TEXT,
+    name TEXT,
+    contact_number TEXT,
+    mobile_number TEXT,
+    email_id TEXT,
+    linkedin_url TEXT,
+    last_meeting_date DATE,
+    next_meeting_date DATE,
+    appointment_given TEXT,
+    appointment_date DATE,
+    meeting_status TEXT,
+    product TEXT,
+    opp_snapshot TEXT
+);
+
+-- Interactions
+CREATE TABLE interactions (
+    id UUID PRIMARY KEY,
+    company_id UUID REFERENCES companies(id),
+    contact_id UUID REFERENCES contacts(id),
+    remark_text TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+---
+
+## 3. UI/UX Specification (The Account 360 Page)
+
+When a user clicks a company from the search bar, they land on `/accounts/[id]`. This is the most critical page.
+
+**Layout:** 3-Column Grid + Bottom Input Bar.
+
+### Left Column: Account Health (KPI Cards)
+*   Card 1: **Health Status** (Colored badge: Critical = Red, Healthy = Green).
+*   Card 2: **Health Score** (e.g., -50).
+*   Card 3: **Open Pipeline** (e.g., $0).
+*   Card 4: **Oldest Opp** (e.g., 302 Days).
+*   Card 5: **Next Meeting** (e.g., Not Planned).
+
+### Center Column: Detailed Data Tables
+*   **Section 1: Key Contacts (Decision Makers)**
+    *   *Table Columns:* Designation | Name | Contact No. | Mobile No. | Email ID | LinkedIn | Last Meeting | Next Meeting | Appointment Given | Meeting Status | Product | OPP Snapshot.
+    *   *Action:* Clicking a row selects that contact as the active target for the Input Box at the bottom.
+*   **Section 2: Other Contacts (Influencers)**
+    *   *Table Columns:* Same as above, but filtered where `is_key_contact = false`.
+*   **Section 3: Product Portfolio**
+    *   *List:* Active Products vs. White-Space (e.g., "Core Cluster Management - Active" / "Zero-Trust Identity Bridge - White-Space").
+
+### Right Column: Deterministic Suggested Moves
+*   Shows the rules fired by the backend (e.g., "Competitor X mentioned", "Coverage gap: No CMO").
+*   **Configurator Button:** Clicking a product here opens the "Safety Brake" modal (checking `product_exclusions` and `vendor_authorization`).
+
+### Bottom Bar: The Input Box
+*   **Context Text:** "Log interaction for [Selected Contact Name] or General Account".
+*   When the user hits send, it saves the remark, updates the tables, and refreshes the Right Column.
+
+---
+
+## 4. Backend API Requirements (FastAPI)
+
+### A. Auth Endpoints
+*   `POST /auth/login`
+*   `GET /auth/me` (Returns user role and assigned accounts).
+
+### B. Data Endpoints
+*   `GET /api/companies`: Returns list for search.
+*   `GET /api/companies/{id}/hub`: Returns Company details, Key Contacts, Other Contacts, and Products in one JSON.
+*   `POST /api/interactions`: Saves the remark, runs the Python Perception Engine, and returns updated Suggested Moves.
+*   `POST /api/companies`: Creates a new company (Deduplication check required).
+
+### C. Excel Ingestion
+*   `POST /api/import/upload`: Accepts `.xlsx`, reads headers using `pandas`.
+*   `POST /api/import/execute`: Maps data to `companies` and `contacts` tables, handling the horizontal date unpivoting.
+
+---
+
+## 5. Why AI Studio Failed (And How to Prompt it Now)
+
+If you want to use AI Studio again, you **must** prompt it one file at a time. It cannot generate routing, auth, and tables all at once.
+
+**Prompt for the Next Page (The Account 360 Table):**
+> *"Now, write the Next.js code for `app/accounts/[id]/page.tsx`. Create a 3-column layout. The center column must have two distinct tables: 'Key Contacts' and 'Other Contacts'. The tables must have these exact headers: Designation, Name, Contact Number, Mobile Number, Email ID, Last Meeting, Next Meeting, and Status. Add an 'Add Contact' button above the tables. Do not write the backend; use mock data to render the table structure."*
+
+**Prompt to add Login & Sidebar:**
+> *"Add a persistent Sidebar to the app's `layout.tsx`. It should have links for 'Dashboard', 'Accounts', and 'Pipelines'. Create a dummy `/login` page that redirects to the dashboard upon clicking 'Sign In'. Protect all `/accounts` routes so they cannot be accessed without a fake `localStorage` token."*
+
+### The Reality Check
+You have two options now:
+1.  **Hire a Freelancer:** Give them this SOW. It is specific enough that they will build it exactly as you see it in your Excel mockup. They will know how to wire NextAuth and the complex tables.
+2.  **Fight with AI:** Spend the next 3 days feeding AI Studio 20 different prompts to build the Auth, the Sidebar, the Tables, the Modals, and the Backend piece by piece.
+
+**If you are not a coder, Option 1 is your best bet.** The SOW above is exactly what you hand to them.

@@ -1,0 +1,6 @@
+{
+  "name": "Deterministic B2B Sales OS",
+  "description": "Deterministic, autonomous B2B sales operating system replacing manual spreadsheets with instant regex parsing, rule-based suggested moves, and high-density account hubs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
